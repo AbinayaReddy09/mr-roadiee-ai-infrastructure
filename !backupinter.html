@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<!-- saved from url=(0035)http://127.0.0.1:5500/inter_h2.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mr.Roadiee | Live Command Center v4.0</title>
+    
+    <link rel="stylesheet" href="./mr.roadieemain_files/leaflet.css">
+
+    <style>
+
+        /* --- GLOBAL VARIABLES & THEME --- */
+        :root {
+            --bg-dark: #050810;
+            --glass-bg-blue: rgba(10, 25, 50, 0.65); 
+            --glass-border-blue: rgba(0, 195, 255, 0.3);
+            --glow-blue: rgba(0, 195, 255, 0.6);
+            --glow-red: rgba(255, 50, 70, 0.8);
+            --glow-yellow: rgba(255, 170, 0, 0.8);
+            --text-main: #ffffff;
+            --text-muted: #8b9bb4;
+            --accent-blue: #00e5ff;
+            --accent-purple: #b052ff;
+            --accent-red: #ff3b5c;
+            --accent-yellow: #ffaa00;
+            --accent-green: #00ff88;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body { background-color: var(--bg-dark); color: var(--text-main); overflow: hidden; }
+
+        /* --- MAP CONTAINER --- */
+        #map { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
+
+        /* --- UI OVERLAY LAYER --- */
+        .ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none; 
+            display: flex; flex-direction: column; padding: 20px;
+        }
+
+        .header, .sidebar, .widgets-panel { pointer-events: auto; }
+
+        /* --- GLASSMORPHISM --- */
+        .glass-panel {
+            background: var(--glass-bg-blue);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border-blue);
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+            transition: all 0.3s ease;
+        }
+
+        /* --- HEADER & MENU BUTTON --- */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 25px; margin-bottom: 20px;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 20px; }
+        
+        .menu-btn {
+            background: rgba(0, 0, 0, 0.5); border: 1px solid var(--glass-border-blue);
+            width: 45px; height: 45px; border-radius: 10px; cursor: pointer;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px;
+            transition: 0.3s;
+        }
+        .menu-btn:hover { background: rgba(0, 195, 255, 0.2); box-shadow: 0 0 15px var(--glow-blue); }
+        .menu-btn span { display: block; width: 22px; height: 2px; background: var(--accent-blue); border-radius: 2px; transition: 0.3s; }
+
+        .app-title { font-size: 1.4rem; font-weight: 700; letter-spacing: 1px; text-shadow: 0 0 10px var(--glow-blue); }
+
+        /* Tracking Controls */
+        .tracking-controls {
+            display: flex; align-items: center; gap: 15px; background: rgba(0, 0, 0, 0.6);
+            padding: 8px 15px; border-radius: 30px; border: 1px solid var(--glass-border-blue);
+        }
+        .cam-btn {
+            background: transparent; border: 1px solid transparent; color: var(--text-muted);
+            font-size: 0.85rem; font-weight: 600; cursor: pointer; padding: 5px 12px;
+            border-radius: 20px; transition: 0.3s;
+        }
+        .cam-btn.active.my-loc { background: rgba(255,255,255,0.1); color: white; border-color: white; }
+        .cam-btn.active.car1 { background: rgba(0, 195, 255, 0.2); color: var(--accent-blue); border-color: var(--accent-blue); box-shadow: 0 0 10px var(--glow-blue); }
+        .cam-btn.active.car2 { background: rgba(176, 82, 255, 0.2); color: var(--accent-purple); border-color: var(--accent-purple); box-shadow: 0 0 10px rgba(176,82,255,0.6); }
+
+        .header-right { display: flex; align-items: center; gap: 20px; }
+        .user-details h4 { font-size: 1rem; color: white; margin:0;}
+        .user-details p { font-size: 0.8rem; color: var(--text-muted); margin:0;}
+
+        /* --- WORKSPACE & SIDEBAR --- */
+        .workspace { display: flex; flex: 1; justify-content: space-between; position: relative; overflow: hidden; }
+
+        .sidebar {
+            width: 300px; display: flex; flex-direction: column; gap: 15px;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.4s;
+            overflow-y: auto; padding-right: 5px;
+        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--accent-blue); border-radius: 4px; }
+        .sidebar.hidden { transform: translateX(-120%); opacity: 0; pointer-events: none; }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 15px; padding: 16px 20px;
+            background: var(--glass-bg-blue); border: 1px solid rgba(0, 195, 255, 0.15);
+            border-radius: 12px; cursor: pointer; transition: 0.3s;
+        }
+        .nav-item:hover { border-color: var(--glass-border-blue); background: rgba(20, 60, 120, 0.5); transform: translateX(5px); }
+        .nav-item.active { border-color: var(--accent-blue); box-shadow: inset 0 0 15px rgba(0, 195, 255, 0.15), 0 0 15px rgba(0, 195, 255, 0.3); }
+        
+        .icon-box { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255,255,255,0.1); }
+        .nav-text h4 { font-size: 1rem; margin: 0 0 4px 0; color: white; }
+        .nav-text p { font-size: 0.75rem; margin: 0; color: var(--accent-blue); }
+
+        /* --- RIGHT WIDGETS --- */
+        .widgets-panel { width: 350px; display: flex; flex-direction: column; gap: 20px; transition: 0.3s; overflow-y: auto; padding-bottom: 20px; }
+        .widgets-panel::-webkit-scrollbar { display: none; }
+
+        /* --- NEW DAMAGE PANEL WIDGET --- */
+        .damage-card { padding: 20px; border-color: rgba(0, 229, 255, 0.4); background: rgba(5, 15, 30, 0.85); margin-bottom: 5px; }
+        .damage-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .damage-title { font-weight: 700; font-size: 0.9rem; color: var(--accent-blue); letter-spacing: 1px; }
+        .damage-details { display: flex; flex-direction: column; gap: 12px; font-size: 0.85rem; color: var(--text-muted); transition: opacity 0.3s; }
+        .damage-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px; }
+        .damage-label { font-weight: 600; color: #fff; }
+        .damage-val { font-family: monospace; color: var(--accent-blue); text-align: right; }
+        .damage-val.warn { color: var(--accent-yellow); }
+        .damage-val.alert { color: var(--accent-red); font-weight: bold; }
+
+        /* --- UPGRADED CIVIC UPLOAD WIDGET --- */
+        .civic-card { padding: 20px; border-color: rgba(255, 170, 0, 0.4); background: rgba(30, 20, 5, 0.85); }
+        .civic-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .civic-title { font-weight: 700; font-size: 0.9rem; color: var(--accent-yellow); letter-spacing: 1px; }
+        .live-indicator { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: #ffaa00; font-weight: bold;}
+        .live-dot { width: 8px; height: 8px; background: #ffaa00; border-radius: 50%; animation: pulse-yellow 1.5s infinite; }
+        
+        .civic-cam-viewport {
+            width: 100%; height: 180px; background: #000; border-radius: 8px; border: 1px solid rgba(255,170,0,0.3);
+            margin-bottom: 15px; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+        .civic-cam-viewport video, .civic-cam-viewport img { width: 100%; height: 100%; object-fit: cover; display: none; z-index: 1;}
+        .cam-overlay-text { position: absolute; color: rgba(255,255,255,0.5); font-size: 0.9rem; font-family: monospace; z-index: 2; text-align: center; }
+        .crosshair { position: absolute; width: 40px; height: 40px; border: 2px solid rgba(255,170,0,0.5); z-index: 3; pointer-events: none; }
+        .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,170,0,0.5); }
+        .crosshair::before { top: 50%; left: -10px; right: -10px; height: 2px; transform: translateY(-50%); }
+        .crosshair::after { left: 50%; top: -10px; bottom: -10px; width: 2px; transform: translateX(-50%); }
+
+        /* Button Grid */
+        .btn-grid { display: flex; gap: 10px; width: 100%; }
+        
+        .btn-glow {
+            flex: 1; padding: 12px 5px; background: transparent; border: 1px solid var(--accent-yellow);
+            color: var(--accent-yellow); font-weight: 700; border-radius: 8px; cursor: pointer; transition: 0.3s;
+            text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem;
+            display: flex; justify-content: center; align-items: center; gap: 5px;
+        }
+        .btn-glow:hover { background: rgba(255, 170, 0, 0.2); box-shadow: 0 0 15px rgba(255,170,0,0.5); }
+        .btn-glow.active { background: rgba(255, 170, 0, 0.2); border-color: white; color: white; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+        
+        .btn-submit {
+            width: 100%; margin-top: 10px; background: rgba(255, 59, 92, 0.1); border-color: var(--accent-red); color: var(--accent-red);
+        }
+        .btn-submit:hover { background: var(--accent-red); color: white; box-shadow: 0 0 15px var(--glow-red); }
+
+        @keyframes pulse-yellow { 0% { box-shadow: 0 0 0 0 rgba(255, 170, 0, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 170, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 170, 0, 0); } }
+
+        /* --- CAR & USER MARKERS --- */
+        .car-container {
+            width: 28px; height: 56px; display: flex; justify-content: center; align-items: center;
+            will-change: transform; filter: drop-shadow(0px 5px 15px rgba(0, 0, 0, 0.8)); transform-origin: center center;
+        }
+        .pulse-user { width: 14px; height: 14px; background: #a0aec0; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px white; }
+        .leaflet-popup-content-wrapper { background: rgba(20, 30, 50, 0.95); color: white; border: 1px solid var(--glass-border-blue); border-radius: 8px; }
+        .leaflet-popup-tip { background: rgba(20, 30, 50, 0.95); }
+.signin-btn {
+    background: rgba(0, 195, 255, 0.15);
+    border: 1px solid var(--accent-blue);
+    color: var(--accent-blue);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.signin-btn:hover {
+    background: var(--accent-blue);
+    color: black;
+    box-shadow: 0 0 15px var(--glow-blue);
+}
+    </style>
+</head>
+<body>
+
+    <div id="map" class="leaflet-container leaflet-touch leaflet-retina leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom" tabindex="0"><div class="leaflet-pane leaflet-map-pane" style="transform: translate3d(-2px, 220px, 0px);"><div class="leaflet-pane leaflet-tile-pane"><div class="leaflet-layer " style="z-index: 1; opacity: 1;"><div class="leaflet-tile-container leaflet-zoom-animated" style="z-index: 19; transform: translate3d(0px, 0px, 0px) scale(1);"><img alt="" src="./mr.roadieemain_files/7596@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(269px, 77px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7596@2x(1).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(525px, 77px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7595@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(269px, -179px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7595@2x(1).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(525px, -179px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7597@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(269px, 333px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7597@2x(1).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(525px, 333px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7596@2x(2).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(13px, 77px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7596@2x(3).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(781px, 77px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7595@2x(2).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(13px, -179px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7595@2x(3).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(781px, -179px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7597@2x(2).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(13px, 333px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7597@2x(3).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(781px, 333px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7596@2x(4).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-243px, 77px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7596@2x(5).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1037px, 77px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7595@2x(4).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-243px, -179px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7595@2x(5).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1037px, -179px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7597@2x(4).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-243px, 333px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7597@2x(5).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1037px, 333px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7594@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(269px, -435px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7594@2x(1).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(525px, -435px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7594@2x(2).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(13px, -435px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7594@2x(3).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(781px, -435px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7594@2x(4).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-243px, -435px, 0px); opacity: 1;"><img alt="" src="./mr.roadieemain_files/7594@2x(5).png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1037px, -435px, 0px); opacity: 1;"></div></div></div><div class="leaflet-pane leaflet-overlay-pane"><svg pointer-events="none" class="leaflet-zoom-animated" width="1526" height="706" viewBox="-125 -279 1526 706" style="transform: translate3d(-125px, -279px, 0px);"><g><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M519,118a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M532,95a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M533,94a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M536,90a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M539,82a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M544,73a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M547,65a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M548,62a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M550,58a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M553,53a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M554,48a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M556,45a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M556,44a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M558,38a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M560,37a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M566,42a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M567,43a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M567,43a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M567,43a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M567,43a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M567,43a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M567,43a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M567,43a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M567,43a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M567,43a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M567,43a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M571,48a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M581,61a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M592,72a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M595,75a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M599,77a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M602,68a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M608,65a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M616,68a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M629,72a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M632,73a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M632,74a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M632,74a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M632,74a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M632,74a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ff3b5c" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M632,74a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#ffaa00" fill-opacity="0.8" fill-rule="evenodd" d="M632,74a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 "></path><path class="interactive-dot leaflet-interactive" stroke="#fff" stroke-opacity="0.9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#00ff88" fill-opacity="0.8" fill-rule="evenodd" d="M0 0"></path></g></svg></div><div class="leaflet-pane leaflet-shadow-pane"></div><div class="leaflet-pane leaflet-marker-pane"><div class="leaflet-marker-icon custom-div-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(636px, 294px, 0px); z-index: 294;"><div class="pulse-user"></div></div><div class="leaflet-marker-icon custom-car-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -14px; margin-top: -28px; width: 28px; height: 56px; transform: translate3d(638px, 74px, 0px); z-index: 1074;">
+                    <div class="car-container" id="carBody1" style="transform: rotate(109.214deg);">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200" width="100%" height="100%">
+                            <rect x="15" y="15" width="70" height="180" rx="20" fill="rgba(0,0,0,0.5)"></rect>
+                            <rect x="20" y="10" width="60" height="180" rx="20" fill="#00e5ff"></rect>
+                            <rect x="25" y="45" width="50" height="110" rx="15" fill="#0099ff"></rect>
+                            <path d="M 28 60 L 72 60 L 68 85 L 32 85 Z" fill="#111"></path>
+                            <path d="M 28 140 L 72 140 L 68 120 L 32 120 Z" fill="#111"></path>
+                            <circle cx="50" cy="100" r="12" fill="#222" stroke="#00e5ff" stroke-width="2"></circle>
+                            <circle cx="50" cy="100" r="4" fill="#ff3b5c"><animate attributeName="opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite"></animate></circle>
+                            <path d="M 25 15 L 35 15 L 32 25 L 25 25 Z" fill="#fff"></path>
+                            <path d="M 75 15 L 65 15 L 68 25 L 75 25 Z" fill="#fff"></path>
+                            <rect x="25" y="175" width="15" height="5" fill="#ff3b5c" rx="2"></rect>
+                            <rect x="60" y="175" width="15" height="5" fill="#ff3b5c" rx="2"></rect>
+                        </svg>
+                    </div>
+                </div><div class="leaflet-marker-icon custom-car-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -14px; margin-top: -28px; width: 28px; height: 56px; transform: translate3d(1009px, 624px, 0px); z-index: 1623;">
+                    <div class="car-container" id="carBody2" style="transform: rotate(48.5325deg);">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200" width="100%" height="100%">
+                            <rect x="15" y="15" width="70" height="180" rx="20" fill="rgba(0,0,0,0.5)"></rect>
+                            <rect x="20" y="10" width="60" height="180" rx="20" fill="#b052ff"></rect>
+                            <rect x="25" y="45" width="50" height="110" rx="15" fill="#7000ff"></rect>
+                            <path d="M 28 60 L 72 60 L 68 85 L 32 85 Z" fill="#111"></path>
+                            <path d="M 28 140 L 72 140 L 68 120 L 32 120 Z" fill="#111"></path>
+                            <circle cx="50" cy="100" r="12" fill="#222" stroke="#b052ff" stroke-width="2"></circle>
+                            <circle cx="50" cy="100" r="4" fill="#ff3b5c"><animate attributeName="opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite"></animate></circle>
+                            <path d="M 25 15 L 35 15 L 32 25 L 25 25 Z" fill="#fff"></path>
+                            <path d="M 75 15 L 65 15 L 68 25 L 75 25 Z" fill="#fff"></path>
+                            <rect x="25" y="175" width="15" height="5" fill="#ff3b5c" rx="2"></rect>
+                            <rect x="60" y="175" width="15" height="5" fill="#ff3b5c" rx="2"></rect>
+                        </svg>
+                    </div>
+                </div></div><div class="leaflet-pane leaflet-tooltip-pane"></div><div class="leaflet-pane leaflet-popup-pane"></div><div class="leaflet-proxy leaflet-zoom-animated" style="transform: translate3d(3.0012e+06px, 1.94457e+06px, 0px) scale(8192);"></div></div><div class="leaflet-control-container"><div class="leaflet-top leaflet-left"></div><div class="leaflet-top leaflet-right"></div><div class="leaflet-bottom leaflet-left"></div><div class="leaflet-bottom leaflet-right"></div></div></div>
+
+    <div class="ui-layer">
+        
+        <header class="header glass-panel">
+            <div class="header-left">
+                <button class="menu-btn" id="menuToggle">
+                    <span></span><span></span><span></span>
+                </button>
+                <div class="app-title">Mr.Roadiee</div>
+                
+                <div class="tracking-controls">
+                    <button class="cam-btn my-loc" id="btnTrackLoc">My Location</button>
+                    <button class="cam-btn car1 active" id="btnTrackCar1">Unit Alpha</button>
+                    <button class="cam-btn car2" id="btnTrackCar2">Unit Bravo</button>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <div class="header-right">
+    <button class="signin-btn" id="btnSignIn">🔐 Sign In</button>
+    
+    <div class="user-details" style="text-align: right;">
+        <h4>Team HASHTRIX</h4>
+        <p>Admin Portal v4.0</p>
+    </div>
+</div>
+            </div>
+        </header>
+
+        <div class="workspace">
+            
+            <aside class="sidebar" id="sidebar">
+
+                <div class="nav-item active" id="navAdmin">
+                    <div class="icon-box"><svg viewBox="0 0 24 24" width="22" height="22" fill="var(--accent-blue)"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg></div>
+                    <div class="nav-text"><h4>ADMIN LOGIN</h4><p>Secure Portal</p></div>
+                </div>
+
+                <div class="nav-item" id="navSimulation">
+                    <div class="icon-box"><svg viewBox="0 0 24 24" width="22" height="22" fill="var(--accent-green)"><path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"></path></svg></div>
+                    <div class="nav-text"><h4>SIMULATION</h4><p>Route Physics</p></div>
+                </div>
+
+                <div class="nav-item" id="nav3DModel">
+                    <div class="icon-box"><svg viewBox="0 0 24 24" width="22" height="22" fill="var(--accent-purple)"><path d="M12 2l-5.5 9h11L12 2zm0 20l5.5-9h-11L12 22z"></path></svg></div>
+                    <div class="nav-text"><h4>Lidar Working</h4><p>Real-Time Scan</p></div>
+                </div>
+
+                <div class="nav-item" id="navLidar">
+                    <div class="icon-box"><svg viewBox="0 0 24 24" width="22" height="22" fill="var(--accent-red)"><path d="M13 2.05v3.03c3.39.49 6 3.39 6 6.92s-2.61 6.43-6 6.92v3.03c5.05-.5 9-4.76 9-9.95s-3.95-9.45-9-9.95z"></path></svg></div>
+                    <div class="nav-text"><h4>ANALYTICS</h4><p>Core Intelligence</p></div>
+                </div>
+            </aside>
+
+            <aside class="widgets-panel">
+
+                <div class="glass-panel damage-card" id="damagePanel">
+                    <div class="damage-header">
+                        <span class="damage-title">DAMAGE INSPECTOR</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);" id="damageStatus">AWAITING SELECTION</span>
+                    </div>
+                    <div class="damage-details" id="damageDetails" style="opacity: 0.4;">
+                        <div class="damage-row"><span class="damage-label">Severity Level</span><span class="damage-val" id="detLevel">N/A</span></div>
+                        <div class="damage-row"><span class="damage-label">Coordinates</span><span class="damage-val" id="detCoords">--.----, --.----</span></div>
+                        <div class="damage-row"><span class="damage-label">Est. Depth</span><span class="damage-val" id="detDepth">-- cm</span></div>
+                        <div class="damage-row"><span class="damage-label">Est. Width</span><span class="damage-val" id="detWidth">-- cm</span></div>
+                        <div class="damage-row"><span class="damage-label">Timestamp</span><span class="damage-val" id="detTime">--:--:-- | --/--/--</span></div>
+                    </div>
+                </div>
+                
+                <div class="glass-panel civic-card">
+                    <div class="civic-header">
+                        <span class="civic-title">CIVIC REPORTING</span>
+                        <div class="live-indicator">
+                            <div class="live-dot" id="recDot" style="display:none;"></div>
+                            <span id="recText">STANDBY</span>
+                        </div>
+                    </div>
+                    
+                    <div class="civic-cam-viewport" id="camViewport">
+                        <div class="cam-overlay-text" id="camOverlay">AWAITING SOURCE</div>
+                        <div class="crosshair" style="display:none;" id="crosshair"></div>
+                        <video id="webcamVideo" autoplay="" playsinline=""></video>
+                        <img id="uploadedPreview" alt="Upload Preview">
+                    </div>
+
+                    <div class="btn-grid">
+                        <button class="btn-glow" id="btnLiveCam">📸 LIVE CAM</button>
+                        <button class="btn-glow" id="btnUploadPic">📁 UPLOAD</button>
+                    </div>
+                    
+                    <input type="file" id="fileInput" accept="image/*" style="display:none;">
+                    
+                    <button class="btn-glow btn-submit" id="btnSubmitReport" style="display:none;">🚀 SUBMIT TO DATABASE</button>
+                </div>
+
+            </aside>
+        </div>
+    </div>
+
+    <script src="./mr.roadieemain_files/leaflet.js.download"></script>
+    
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            
+            // --- UI & MENU LOGIC ---
+            const menuBtn = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            menuBtn.addEventListener('click', () => { sidebar.classList.toggle('hidden'); });
+
+            // --- MAP INITIALIZATION ---
+            const myLocation = [12.9650, 77.5950]; 
+            const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(myLocation, 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+            const userIcon = L.divIcon({ className: 'custom-div-icon', html: "<div class='pulse-user'></div>", iconSize: [14, 14] });
+            L.marker(myLocation, {icon: userIcon}).addTo(map).bindPopup("<b>Command Center (You)</b>");
+
+            // --- SVG GENERATOR FOR MULTIPLE CARS ---
+            function generateCarIcon(primaryColor, secondaryColor, id) {
+                const svg = `
+                    <div class="car-container" id="${id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200" width="100%" height="100%">
+                            <rect x="15" y="15" width="70" height="180" rx="20" fill="rgba(0,0,0,0.5)"/>
+                            <rect x="20" y="10" width="60" height="180" rx="20" fill="${primaryColor}"/>
+                            <rect x="25" y="45" width="50" height="110" rx="15" fill="${secondaryColor}"/>
+                            <path d="M 28 60 L 72 60 L 68 85 L 32 85 Z" fill="#111"/>
+                            <path d="M 28 140 L 72 140 L 68 120 L 32 120 Z" fill="#111"/>
+                            <circle cx="50" cy="100" r="12" fill="#222" stroke="${primaryColor}" stroke-width="2"/>
+                            <circle cx="50" cy="100" r="4" fill="#ff3b5c"><animate attributeName="opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite" /></circle>
+                            <path d="M 25 15 L 35 15 L 32 25 L 25 25 Z" fill="#fff"/>
+                            <path d="M 75 15 L 65 15 L 68 25 L 75 25 Z" fill="#fff"/>
+                            <rect x="25" y="175" width="15" height="5" fill="#ff3b5c" rx="2"/>
+                            <rect x="60" y="175" width="15" height="5" fill="#ff3b5c" rx="2"/>
+                        </svg>
+                    </div>
+                `;
+                return L.divIcon({ className: 'custom-car-icon', html: svg, iconSize: [28, 56], iconAnchor: [14, 28] });
+            }
+
+            const iconCar1 = generateCarIcon('#00e5ff', '#0099ff', 'carBody1'); 
+            const iconCar2 = generateCarIcon('#b052ff', '#7000ff', 'carBody2'); 
+
+            // --- ROUTE FETCHING ---
+            async function getRealRoadRoute(start, end) {
+                try {
+                    const url = `https://router.project-osrm.org/route/v1/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    return data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]); 
+                } catch (error) { return [[start[1], start[0]], [end[1], end[0]]]; }
+            }
+
+            const route1Start = [77.5856, 12.9796]; const route1End = [77.6040, 12.9720];   
+            const route2Start = [77.6150, 12.9350]; const route2End = [77.6400, 12.9780];
+
+            const [path1, path2] = await Promise.all([
+                getRealRoadRoute(route1Start, route1End),
+                getRealRoadRoute(route2Start, route2End)
+            ]);
+
+            const markerCar1 = L.marker(path1[0], {icon: iconCar1, zIndexOffset: 1000}).addTo(map);
+            const markerCar2 = L.marker(path2[0], {icon: iconCar2, zIndexOffset: 999}).addTo(map);
+
+            // --- CAMERA TRACKING STATE ---
+            let trackedEntity = 'car1'; 
+            const btnTrackLoc = document.getElementById('btnTrackLoc');
+            const btnTrackCar1 = document.getElementById('btnTrackCar1');
+            const btnTrackCar2 = document.getElementById('btnTrackCar2');
+
+            function updateTrackingBtns(activeBtn) {
+                [btnTrackLoc, btnTrackCar1, btnTrackCar2].forEach(b => b.classList.remove('active'));
+                activeBtn.classList.add('active');
+            }
+
+            btnTrackLoc.addEventListener('click', () => { trackedEntity = 'myLoc'; updateTrackingBtns(btnTrackLoc); map.flyTo(myLocation, 15); });
+            btnTrackCar1.addEventListener('click', () => { trackedEntity = 'car1'; updateTrackingBtns(btnTrackCar1); });
+            btnTrackCar2.addEventListener('click', () => { trackedEntity = 'car2'; updateTrackingBtns(btnTrackCar2); });
+
+
+            // --- SMOOTH PHYSICS ENGINE ---
+            let idx1 = 0, prog1 = 0, currentAngle1 = 0;
+            let idx2 = 0, prog2 = 0, currentAngle2 = 0;
+            const speed1 = 0.015; const speed2 = 0.012; 
+
+            function lerpAngle(startAngle, targetAngle, t) {
+                let delta = ((targetAngle - startAngle + 540) % 360) - 180;
+                return startAngle + delta * t;
+            }
+
+            function processCarTick(path, pathIdx, progress, speed, currentAngle, marker, htmlId) {
+                if (pathIdx >= path.length - 1) pathIdx = 0; 
+                const p1 = path[pathIdx]; const p2 = path[pathIdx + 1];
+
+                progress += speed;
+                if (progress >= 1) { progress = 0; pathIdx++; if(pathIdx >= path.length - 1) pathIdx = 0; }
+
+                const lat = p1[0] + (p2[0] - p1[0]) * progress;
+                const lng = p1[1] + (p2[1] - p1[1]) * progress;
+                const pos = [lat, lng];
+                marker.setLatLng(pos);
+
+                const dy = p2[0] - p1[0]; const dx = p2[1] - p1[1];
+                let targetAngle = Math.atan2(dx, dy) * 180 / Math.PI;
+
+                currentAngle = lerpAngle(currentAngle, targetAngle, 0.1);
+                const domNode = document.getElementById(htmlId);
+                if (domNode) domNode.style.transform = `rotate(${currentAngle}deg)`;
+
+                return { pathIdx, progress, currentAngle, pos };
+            }
+
+            function animateFleet() {
+                const state1 = processCarTick(path1, idx1, prog1, speed1, currentAngle1, markerCar1, 'carBody1');
+                idx1 = state1.pathIdx; prog1 = state1.progress; currentAngle1 = state1.currentAngle;
+                
+                const state2 = processCarTick(path2, idx2, prog2, speed2, currentAngle2, markerCar2, 'carBody2');
+                idx2 = state2.pathIdx; prog2 = state2.progress; currentAngle2 = state2.currentAngle;
+
+                if(trackedEntity === 'car1') map.panTo(state1.pos, { animate: false });
+                if(trackedEntity === 'car2') map.panTo(state2.pos, { animate: false });
+
+                requestAnimationFrame(animateFleet);
+            }
+            requestAnimationFrame(animateFleet);
+
+
+            // --- UNIFIED DETECTION LOGIC ---
+            let distCounter1 = 0; let distCounter2 = 0;
+
+            setInterval(() => {
+                distCounter1++; distCounter2++;
+                if(distCounter1 > 2) { distCounter1 = 0; dropPotholeMarker(markerCar1.getLatLng()); }
+                if(distCounter2 > 3) { distCounter2 = 0; dropPotholeMarker(markerCar2.getLatLng()); }
+            }, 1000);
+
+            // --- UPDATED DROP FUNCTION WITH CLICK INTERACTIVITY ---
+            function dropPotholeMarker(pos) {
+                const rand = Math.random();
+                let dotColor, level, depth, width, valClass;
+
+                // Generate simulated damage data based on severity
+                if (rand > 0.4) { 
+                    dotColor = "#00ff88"; level = "Low (Surface)"; depth = (Math.random() * 2 + 1).toFixed(1) + " cm"; width = (Math.random() * 15 + 10).toFixed(1) + " cm"; valClass = "";
+                } else if (rand > 0.15) { 
+                    dotColor = "#ffaa00"; level = "Medium (Uneven)"; depth = (Math.random() * 4 + 3).toFixed(1) + " cm"; width = (Math.random() * 30 + 20).toFixed(1) + " cm"; valClass = "warn";
+                } else { 
+                    dotColor = "#ff3b5c"; level = "CRITICAL (Deep)"; depth = (Math.random() * 8 + 6).toFixed(1) + " cm"; width = (Math.random() * 60 + 40).toFixed(1) + " cm"; valClass = "alert";
+                }
+
+                // Create and add the marker, making it interactive
+                const marker = L.circleMarker(pos, { radius: 6, fillColor: dotColor, color: '#fff', weight: 1.5, opacity: 0.9, fillOpacity: 0.8, className: 'interactive-dot' }).addTo(map);
+                
+                // Attach click event to populate the new Damage Panel
+                marker.on('click', () => {
+                    const now = new Date();
+                    document.getElementById('damageDetails').style.opacity = '1';
+                    document.getElementById('damageStatus').textContent = "DATA LOCKED";
+                    document.getElementById('damageStatus').style.color = "var(--accent-green)";
+                    
+                    const lvlEl = document.getElementById('detLevel');
+                    lvlEl.textContent = level;
+                    lvlEl.className = `damage-val ${valClass}`;
+                    
+                    document.getElementById('detCoords').textContent = `${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}`;
+                    document.getElementById('detDepth').textContent = depth;
+                    document.getElementById('detWidth').textContent = width;
+                    document.getElementById('detTime').textContent = now.toLocaleTimeString() + " | " + now.toLocaleDateString();
+                    
+                    // Pan map slightly to center the selected damage point
+                    map.flyTo(pos, map.getZoom(), { animate: true, duration: 0.5 });
+                });
+            }
+
+
+            // --- CIVIC UPLOAD SYSTEM ---
+            const btnLiveCam = document.getElementById('btnLiveCam');
+            const btnUploadPic = document.getElementById('btnUploadPic');
+            const btnSubmitReport = document.getElementById('btnSubmitReport');
+            const fileInput = document.getElementById('fileInput');
+            
+            const webcamVideo = document.getElementById('webcamVideo');
+            const uploadedPreview = document.getElementById('uploadedPreview');
+            const camOverlay = document.getElementById('camOverlay');
+            const crosshair = document.getElementById('crosshair');
+            const recDot = document.getElementById('recDot');
+            const recText = document.getElementById('recText');
+            
+            let mediaStream = null;
+
+            function killWebcam() {
+                if(mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                    mediaStream = null;
+                }
+                webcamVideo.style.display = 'none';
+                webcamVideo.srcObject = null;
+                crosshair.style.display = 'none';
+                recDot.style.display = 'none';
+            }
+
+            btnLiveCam.addEventListener('click', async () => {
+                killWebcam();
+                uploadedPreview.style.display = 'none';
+                btnLiveCam.classList.add('active');
+                btnUploadPic.classList.remove('active');
+                btnSubmitReport.style.display = 'none';
+                camOverlay.style.display = 'block';
+                camOverlay.innerHTML = "INITIALIZING SENSORS...";
+                try {
+                    mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+                    webcamVideo.srcObject = mediaStream;
+                    webcamVideo.style.display = 'block';
+                    camOverlay.style.display = 'none';
+                    crosshair.style.display = 'block';
+                    btnSubmitReport.style.display = 'block';
+                    btnSubmitReport.textContent = "🚀 CAPTURE & SYNC";
+                    recDot.style.display = 'block';
+                    recText.textContent = "LIVE DATA";
+                } catch (err) {
+                    camOverlay.innerHTML = "SENSOR ERROR";
+                }
+            });
+
+            btnUploadPic.addEventListener('click', () => { fileInput.click(); });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    killWebcam();
+                    btnUploadPic.classList.add('active');
+                    btnLiveCam.classList.remove('active');
+                    const objectUrl = URL.createObjectURL(file);
+                    uploadedPreview.src = objectUrl;
+                    uploadedPreview.style.display = 'block';
+                    camOverlay.style.display = 'none';
+                    recText.textContent = "FILE LOADED";
+                    btnSubmitReport.style.display = 'block';
+                    btnSubmitReport.textContent = "🚀 UPLOAD TO CLOUD";
+                    const report = generateReport();
+                }
+            });
+
+           btnSubmitReport.addEventListener('click', () => {
+
+    const report = generateReport();
+
+    console.log("Final Submitted Report:", report);
+
+    killWebcam();
+    uploadedPreview.style.display = 'none';
+
+    camOverlay.style.display = 'block';
+    camOverlay.innerHTML = "<span style='color:var(--accent-green)'>REPORT SENT TO OFFICIALS</span>";
+
+    recText.textContent = "SUBMITTED";
+
+    setTimeout(() => {
+        camOverlay.textContent = "AWAITING SOURCE";
+        document.getElementById('reportBox').style.display = 'none';
+        btnSubmitReport.style.display = 'none';
+        fileInput.value = "";
+        recText.textContent = "STANDBY";
+    }, 2500);
+});
+        });
+    </script>
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
+
+</body></html>
